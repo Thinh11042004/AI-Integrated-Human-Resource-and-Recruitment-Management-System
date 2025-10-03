@@ -1,0 +1,16 @@
+# Node / pnpm
+node_modules/
+**/node_modules/
+.pnpm-store/
+pnpm-debug.log
+
+# build artifacts
+dist/
+.next/
+apps/web/.next/
+apps/web/out/
+.turbo/
+
+# env
+.env
+.env.*

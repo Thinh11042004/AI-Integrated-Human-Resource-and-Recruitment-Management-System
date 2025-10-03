@@ -1,0 +1,125 @@
+services:
+  # ========== INFRA ==========
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: hrms
+      POSTGRES_PASSWORD: hrms
+      POSTGRES_DB: hrms
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrms -d hrms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./services/postgres/init:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: devminio
+      MINIO_ROOT_PASSWORD: devminiosecret
+    ports: ["9000:9000","9001:9001"]
+    volumes:
+      - minio:/data
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.8
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: devkey
+    ports: ["7700:7700"]
+
+  # ========== APPS ==========
+  api-gateway:
+    build:
+      context: ../../               # <-- ROOT repo
+      dockerfile: apps/api-gateway/Dockerfile
+    working_dir: /repo/apps/api-gateway
+    env_file:
+      - ../../.env.example
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgresql://hrms:hrms@postgres:5432/hrms
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: devkey
+    ports: ["4000:4000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ../../apps/api-gateway:/repo/apps/api-gateway:rw
+      - /repo/apps/api-gateway/node_modules
+    command: ["pnpm","dev"]
+
+  web:
+    build:
+      context: ../../
+    # nếu có Dockerfile riêng:
+      dockerfile: apps/web/Dockerfile
+    working_dir: /repo/apps/web
+    env_file:
+      - ../../.env.example
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+      PORT: 3000
+      API_URL: http://api-gateway:4000
+    ports: ["3000:3000"]
+    depends_on:
+      api-gateway:
+        condition: service_started
+    volumes:
+      - ../../apps/web:/repo/apps/web:rw
+      - /repo/apps/web/node_modules
+    command: ["pnpm","dev"]
+
+  worker:
+    build:
+      context: ../../
+      dockerfile: apps/worker/Dockerfile
+    working_dir: /repo/apps/worker
+    env_file:
+      - ../../.env.example
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://hrms:hrms@postgres:5432/hrms
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ../../apps/worker:/repo/apps/worker:rw
+      - /repo/apps/worker/node_modules
+    command: ["pnpm","dev"]
+
+  # Bật khi đã có code FastAPI (nếu chưa có thì comment nguyên service này)
+  ai-service:
+    build:
+      context: ../../
+      dockerfile: apps/ai-service/Dockerfile
+    working_dir: /repo/apps/ai-service
+    env_file:
+      - ../../.env.example
+    environment:
+      PORT: 8000
+    ports: ["8000:8000"]
+    volumes:
+      - ../../apps/ai-service:/repo/apps/ai-service
+    command: ["python","-m","uvicorn","src.main:app","--host","0.0.0.0","--port","8000","--reload"]
+
+volumes:
+  pgdata:
+  minio:
