@@ -38,11 +38,11 @@ services:
     ports: ["7700:7700"]
 
   # ========== APPS ==========
-  api-gateway:
+  node-backend:
     build:
       context: ../../               # <-- ROOT repo
-      dockerfile: apps/api-gateway/Dockerfile
-    working_dir: /repo/apps/api-gateway
+      dockerfile: apps/node-backend/Dockerfile
+    working_dir: /repo/apps/node-backend
     env_file:
       - ../../.env.example
     environment:
@@ -61,15 +61,15 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ../../apps/api-gateway:/repo/apps/api-gateway:rw
-      - /repo/apps/api-gateway/node_modules
+      - ../../apps/node-backend:/repo/apps/node-backend:rw
+      - /repo/apps/node-backend/node_modules
     command: ["npm","run","dev"]
 
-  web:
+  react-frontend:
     build:
       context: ../../
-      dockerfile: apps/web/Dockerfile
-    working_dir: /repo/apps/web
+      dockerfile: apps/react-frontend/Dockerfile
+    working_dir: /repo/apps/react-frontend
     env_file:
       - ../../.env.example
     environment:
@@ -77,11 +77,11 @@ services:
       PORT: 3000
     ports: ["3000:3000"]
     depends_on:
-      api-gateway:
+      node-backend:
         condition: service_started
     volumes:
-      - ../../apps/web:/repo/apps/web:rw
-      - /repo/apps/web/node_modules
+      - ../../apps/react-frontend:/repo/apps/react-frontend:rw
+      - /repo/apps/react-frontend/node_modules
     command: ["npm","run","dev","--","--host"]
 
   worker:
