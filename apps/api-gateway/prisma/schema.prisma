@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  HR
+  CANDIDATE
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+enum ResumeStatus {
+  PENDING
+  PARSED
+  FAILED
+}
+
+enum EntityType {
+  JOB
+  RESUME
+}
+
+model User {
+  id          String      @id @default(cuid())
+  email       String      @unique
+  passwordHash String
+  fullName    String
+  role        Role        @default(CANDIDATE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  candidate   Candidate?
+  hrProfile   HRProfile?
+  jobs        Job[]       @relation("JobCreator")
+  auditLogs   AuditLog[]  @relation("AuditActor")
+}
+
+model Candidate {
+  id               String        @id @default(cuid())
+  userId           String        @unique
+  user             User          @relation(fields: [userId], references: [id])
+  headline         String?
+  skills           String[]      @default([])
+  yearsExp         Int?
+  bio              String?
+  createdAt        DateTime      @default(now())
+  resumes          Resume[]
+  applications     Application[]
+  defaultResumeId  String?
+  defaultResume    Resume?       @relation("CandidateDefaultResume", fields: [defaultResumeId], references: [id])
+}
+
+model HRProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  position  String?
+  phone     String?
+  createdAt DateTime @default(now())
+}
+
+model Job {
+  id           String        @id @default(cuid())
+  title        String
+  jdRaw        String
+  skills       String[]      @default([])
+  department   String?
+  level        String?
+  location     String?
+  type         String?
+  salaryMin    Int?
+  salaryMax    Int?
+  createdById  String
+  createdBy    User          @relation("JobCreator", fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  applications Application[]
+}
+
+model Resume {
+  id               String          @id @default(cuid())
+  candidateId      String
+  candidate        Candidate       @relation(fields: [candidateId], references: [id])
+  objectName       String
+  fileName         String
+  mimeType         String
+  textContent      String?
+  parsedJson       Json?
+  status           ResumeStatus    @default(PENDING)
+  createdAt        DateTime        @default(now())
+  applications     Application[]
+  candidateDefault Candidate?      @relation("CandidateDefaultResume")
+}
+
+model Application {
+  id          String             @id @default(cuid())
+  jobId       String
+  job         Job                @relation(fields: [jobId], references: [id])
+  candidateId String
+  candidate   Candidate          @relation(fields: [candidateId], references: [id])
+  resumeId    String?
+  resume      Resume?            @relation(fields: [resumeId], references: [id])
+  status      ApplicationStatus  @default(SUBMITTED)
+  score       Float?
+  stage       String?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  interviews  Interview[]
+}
+
+model Interview {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id])
+  startsAt      DateTime?
+  endsAt        DateTime?
+  mode          String?
+  location      String?
+  panel         String[]    @default([])
+  result        String?
+  notes         String?
+  createdAt     DateTime    @default(now())
+}
+
+model Embedding {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  vectorJson Json
+  createdAt  DateTime   @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}

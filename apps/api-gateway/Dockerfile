@@ -9,6 +9,9 @@ RUN npm install
 
 # Copy source code
 COPY apps/api-gateway/src ./src
+COPY apps/api-gateway/prisma ./prisma
+COPY apps/api-gateway/.eslintrc.json .
+COPY apps/api-gateway/.env.example .
 
 # Expose port
 EXPOSE 4000

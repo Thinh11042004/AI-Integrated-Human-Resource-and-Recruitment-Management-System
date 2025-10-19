@@ -1,41 +1,36 @@
-const errorHandler = (err, req, res, next) => {
-  console.error('Error:', err);
+const { ZodError } = require('zod');
+const env = require('../config/env');
+const ApiError = require('../utils/apiError');
 
-  // Default error
-  let error = {
-    message: err.message || 'Internal Server Error',
-    status: err.status || 500
+const errorHandler = (err, req, res, next) => { // eslint-disable-line
+  const isKnown = err instanceof ApiError;
+  const status = isKnown ? err.statusCode : 500;
+  const payload = {
+    success: false,
+    message: err.message || 'Internal server error'
   };
 
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message);
-    error = {
-      message: message.join(', '),
-      status: 400
-    };
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation error',
+      details: err.errors
+    });
   }
 
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    error = {
-      message: 'Invalid token',
-      status: 401
-    };
+  if (isKnown && err.details) {
+    payload.details = err.details;
   }
 
-  if (err.name === 'TokenExpiredError') {
-    error = {
-      message: 'Token expired',
-      status: 401
-    };
+  if (env.nodeEnv !== 'production' && !isKnown) {
+    payload.stack = err.stack;
   }
 
-  res.status(error.status).json({
-    success: false,
-    error: error.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  if (!isKnown) {
+    console.error(err);
+  }
+
+  res.status(status).json(payload);
 };
 
-module.exports = { errorHandler };
+module.exports = errorHandler;

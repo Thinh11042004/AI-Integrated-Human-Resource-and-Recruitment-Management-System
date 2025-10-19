@@ -6,10 +6,11 @@
     "apps/*",
     "packages/*"
   ],
-  "scripts": {
+   "scripts": {
     "dev:docker": "docker compose -f infra/docker/docker-compose.dev.yml up -d",
     "down:docker": "docker compose -f infra/docker/docker-compose.dev.yml down",
     "ps:docker": "docker compose -f infra/docker/docker-compose.dev.yml ps",
+    "dev": "turbo run dev --parallel --filter=api-gateway --filter=web",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api-gateway dev",
     "dev:worker": "pnpm --filter worker dev"
